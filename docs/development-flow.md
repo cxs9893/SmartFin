@@ -5,8 +5,6 @@
 ## 迭代文档索引
 
 <!-- ITERATION_DOCS_INDEX_START -->
-- ingest-index: docs/ingest-index-iteration.md
-- retrieval-hybrid: docs/retrieval-hybrid-iteration.md
 - retrieval: docs/retrieval-iteration.md
 <!-- ITERATION_DOCS_INDEX_END -->
 
@@ -14,7 +12,7 @@
 
 ### 迭代文档模板
 - 模板路径：`docs/templates/iteration-template.md`
-- 固定章节：
+- 固定章节（标题需保持英文一致）：
   - `Iteration Goal`
   - `Scope of This Iteration`
   - `Delivered Features`
@@ -23,15 +21,20 @@
   - `Commits in This Iteration`
   - `Known Risks / Limitations`
   - `Suggested Next Iterations`
+- 文件命名规范：
+  - `docs/<module>-iteration.md`
+  - `<module>` 建议使用：`ingest` / `retrieval` / `qa` / `report`
 
 ### 自动化脚本：更新迭代文档与索引
 - 脚本：`scripts/update_iteration_docs.ps1`
 - 用法：
   - `powershell -ExecutionPolicy Bypass -File scripts/update_iteration_docs.ps1 -Module retrieval`
+  - `powershell -ExecutionPolicy Bypass -File scripts/update_iteration_docs.ps1 -Module ingest`
 - 能力：
   - 若 `docs/<module>-iteration.md` 不存在，则基于模板创建
   - 自动更新 `docs/development-flow.md` 的“迭代文档索引”区域
   - 幂等执行，不重复插入同一条索引
+  - 终端输出为中文提示，便于本地排查
 
 ### 校验脚本：迭代文档一致性检查
 - 脚本：`scripts/validate_iteration_docs.ps1`
@@ -255,6 +258,13 @@ flowchart TD
     D7 --> D8[提交 docs/chore]
     D8 --> D9[输出改动与风险说明]
 ```
+
+
+
+
+
+
+
 
 
 

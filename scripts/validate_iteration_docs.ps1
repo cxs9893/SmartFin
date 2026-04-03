@@ -39,7 +39,7 @@ $flowContent = ""
 if (Test-Path $flowPath) {
     $flowContent = Get-Content -Raw $flowPath
 } else {
-    $errors += "Missing docs/development-flow.md"
+    $errors += "缺少 docs/development-flow.md"
 }
 
 foreach ($module in $touchedModules) {
@@ -55,21 +55,21 @@ foreach ($module in $touchedModules) {
     }
 
     if (-not $docChanged) {
-        $errors += "Detected src/finqa/$module/ changes but missing docs change: $docRel"
+        $errors += "检测到 src/finqa/$module/ 有改动，但缺少对应文档改动: $docRel"
     }
 
     if ($flowContent -and -not $flowContent.Contains($docRelNorm)) {
-        $errors += "Missing module link in docs/development-flow.md: $docRel"
+        $errors += "docs/development-flow.md 缺少模块链接: $docRel"
     }
 }
 
 if ($errors.Count -gt 0) {
-    Write-Host "Iteration docs validation failed:" -ForegroundColor Red
+    Write-Host "迭代文档校验失败：" -ForegroundColor Red
     foreach ($e in $errors) {
         Write-Host " - $e" -ForegroundColor Red
     }
     exit 1
 }
 
-Write-Host "Iteration docs validation passed." -ForegroundColor Green
+Write-Host "迭代文档校验通过。" -ForegroundColor Green
 exit 0
