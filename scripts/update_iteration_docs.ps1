@@ -14,20 +14,20 @@ $iterationDocPath = Join-Path $docsDir "$Module-iteration.md"
 $flowPath = Join-Path $docsDir "development-flow.md"
 
 if (-not (Test-Path $templatePath)) {
-    throw "Template not found: $templatePath"
+    throw "未找到模板文件: $templatePath"
 }
 
 if (-not (Test-Path $flowPath)) {
-    throw "Flow doc not found: $flowPath"
+    throw "未找到流程文档: $flowPath"
 }
 
 if (-not (Test-Path $iterationDocPath)) {
     $template = Get-Content -Raw $templatePath
     $rendered = $template.Replace("{{MODULE}}", $Module)
     Set-Content -Path $iterationDocPath -Value $rendered -Encoding UTF8
-    Write-Host "Created: docs/$Module-iteration.md"
+    Write-Host "已创建: docs/$Module-iteration.md"
 } else {
-    Write-Host "Exists: docs/$Module-iteration.md"
+    Write-Host "已存在: docs/$Module-iteration.md"
 }
 
 $startMarker = "<!-- ITERATION_DOCS_INDEX_START -->"
@@ -37,7 +37,7 @@ $flow = Get-Content -Raw $flowPath
 
 if (-not $flow.Contains($startMarker) -or -not $flow.Contains($endMarker)) {
     $insertion = @"
-## Iteration Document Index
+## 迭代文档索引
 $startMarker
 $endMarker
 "@
@@ -56,7 +56,7 @@ foreach ($doc in $allIterationDocs) {
 }
 
 if ($lines.Count -eq 0) {
-    $lines += "- (none)"
+    $lines += "- （暂无）"
 }
 
 $replacement = $startMarker + "`r`n" + ($lines -join "`r`n") + "`r`n" + $endMarker
@@ -64,4 +64,4 @@ $pattern = [regex]::Escape($startMarker) + "[\s\S]*?" + [regex]::Escape($endMark
 $updated = [regex]::Replace($flow, $pattern, $replacement)
 
 Set-Content -Path $flowPath -Value $updated -Encoding UTF8
-Write-Host "Updated index in docs/development-flow.md"
+Write-Host "已更新索引: docs/development-flow.md"
