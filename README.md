@@ -35,6 +35,11 @@ finqa report --mode cross_year --out json
 docker-compose up --build
 ```
 
+## 迭代文档规范
+
+- 统一规范与脚本用法见：
+  - `docs/development-flow.md` 的“规范与自动化”章节
+
 ## 当前状态
 
 当前为第0阶段项目骨架：
