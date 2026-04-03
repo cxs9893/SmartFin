@@ -1,12 +1,42 @@
+﻿# Project-specific
 node_modules/
-.env
-# Generated artifacts
 .finqa/
-__pycache__/
-*.pyc
+.dmux/
+dev.sh
+tmux-*.log
+
+# Environments and secrets
+.env
+.env.*
 .venv/
+venv/
+env/
+ENV/
+
+# Python cache / artifacts
+__pycache__/
+*.py[codz]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.so
 *.egg-info/
+.eggs/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+site/
+*.egg
+.Python
+pip-wheel-metadata/
 
 # IDE
 .vscode/
