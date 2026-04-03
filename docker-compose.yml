@@ -5,4 +5,9 @@
     volumes:
       - ./data:/app/data
       - ./.finqa:/app/.finqa
-    command: ["finqa", "--help"]
+    command:
+      [
+        "sh",
+        "-c",
+        "finqa ingest --data-dir /app/data --out-dir /app/.finqa && finqa report --mode cross_year --out json > /app/.finqa/report.json && cat /app/.finqa/report.json && tail -f /dev/null"
+      ]
