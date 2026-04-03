@@ -4,7 +4,43 @@
 
 ## 迭代文档索引
 
-- Retrieval 混合检索迭代记录：`docs/retrieval-hybrid-iteration.md`
+<!-- ITERATION_DOCS_INDEX_START -->
+- ingest-index: docs/ingest-index-iteration.md
+- retrieval-hybrid: docs/retrieval-hybrid-iteration.md
+- retrieval: docs/retrieval-iteration.md
+<!-- ITERATION_DOCS_INDEX_END -->
+
+## 规范与自动化
+
+### 迭代文档模板
+- 模板路径：`docs/templates/iteration-template.md`
+- 固定章节：
+  - `Iteration Goal`
+  - `Scope of This Iteration`
+  - `Delivered Features`
+  - `Acceptance Mapping`
+  - `Validation and Results`
+  - `Commits in This Iteration`
+  - `Known Risks / Limitations`
+  - `Suggested Next Iterations`
+
+### 自动化脚本：更新迭代文档与索引
+- 脚本：`scripts/update_iteration_docs.ps1`
+- 用法：
+  - `powershell -ExecutionPolicy Bypass -File scripts/update_iteration_docs.ps1 -Module retrieval`
+- 能力：
+  - 若 `docs/<module>-iteration.md` 不存在，则基于模板创建
+  - 自动更新 `docs/development-flow.md` 的“迭代文档索引”区域
+  - 幂等执行，不重复插入同一条索引
+
+### 校验脚本：迭代文档一致性检查
+- 脚本：`scripts/validate_iteration_docs.ps1`
+- 用法：
+  - `powershell -ExecutionPolicy Bypass -File scripts/validate_iteration_docs.ps1`
+- 规则：
+  - 若本次改动涉及 `src/finqa/<module>/`，则必须包含 `docs/<module>-iteration.md` 改动
+  - `docs/development-flow.md` 中必须存在对应模块链接
+  - 不满足时返回非零退出码并输出错误
 
 ## 总体流程图
 
@@ -68,6 +104,46 @@ flowchart TD
 ### 6. 启动脚本沉淀
 - 将并行启动流程沉淀为 `dev.sh`。
 - 支持根据并行任务数量动态打开对应数量窗口，实现通用化启动。
+
+## 完整合并验收门槛（Checklist）
+
+1. 功能可用性
+- `finqa ingest`、`finqa ask`、`finqa report` 在 `main` 可执行。
+
+2. 问答可信性
+- `ask` 满足“有引用就回答、无证据就拒答”。
+- 输出包含 `citations` 字段。
+
+3. 可追溯字段完整性
+- 每条 citation 至少包含：
+  - `source_file`
+  - `fiscal_year`
+  - `section`
+  - `paragraph_id`
+  - `quote_en`
+
+4. 容器可运行性
+- `docker-compose up --build` 可启动。
+- 容器内至少能跑通一条基础命令链路（如 ingest + report）。
+
+5. 文档完整性
+- `README.md` 至少包含：
+  - 本地运行步骤
+  - 容器运行步骤
+  - 评估指标说明
+  - AI-Coding 协作说明
+
+6. 测试最低要求
+- 每个并行分支至少新增或更新 1 个与任务相关的测试/最小验证。
+- 合并后主分支 smoke 通过。
+
+7. 分支与提交卫生
+- 每个 worker 至少 2 次提交（`feat` + `test/docs/chore`）。
+- 不跨越责任边界修改他人模块（如需跨模块改动，需在说明中解释原因）。
+
+8. 收束顺序与回归
+- 收束顺序固定为：`A -> B/C -> D`。
+- 每次合并后执行一轮回归检查，再进入下一分支合并。
 
 ## 改进后的 4 个 Pane 首条指令模板
 
@@ -179,3 +255,6 @@ flowchart TD
     D7 --> D8[提交 docs/chore]
     D8 --> D9[输出改动与风险说明]
 ```
+
+
+
