@@ -2,6 +2,10 @@
 
 > 说明：本流程只记录产品与工程推进路径，不包含中间工具故障排查细节。
 
+## 迭代文档索引
+
+- Retrieval 混合检索迭代记录：`docs/retrieval-hybrid-iteration.md`
+
 ## 总体流程图
 
 ```mermaid
