@@ -1,0 +1,36 @@
+[project]
+name = "smartfin"
+version = "0.1.0"
+description = "Local financial report QA system for 10-K documents"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "typer>=0.12.3",
+  "rich>=13.7.1",
+  "pydantic>=2.7.1",
+  "pydantic-settings>=2.2.1",
+  "numpy>=1.26.4",
+  "rank-bm25>=0.2.2",
+  "faiss-cpu>=1.8.0",
+]
+
+[project.optional-dependencies]
+llm = [
+  "llama-cpp-python>=0.2.79"
+]
+
+[project.scripts]
+finqa = "finqa.cli:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

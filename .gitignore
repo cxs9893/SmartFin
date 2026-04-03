@@ -1,2 +1,17 @@
 node_modules/
 .env
+# Generated artifacts
+.finqa/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

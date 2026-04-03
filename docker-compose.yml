@@ -1,0 +1,8 @@
+﻿services:
+  finqa:
+    build: .
+    container_name: smartfin
+    volumes:
+      - ./data:/app/data
+      - ./.finqa:/app/.finqa
+    command: ["finqa", "--help"]
