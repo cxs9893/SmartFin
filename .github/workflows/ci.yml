@@ -64,6 +64,7 @@ jobs:
           name: finqa-ci-linux
           path: .finqa_ci
           if-no-files-found: error
+          include-hidden-files: true
 
   test-windows:
     name: Test (Windows)
@@ -99,6 +100,7 @@ jobs:
           name: finqa-ci-windows
           path: .finqa_ci
           if-no-files-found: error
+          include-hidden-files: true
 
   docker-main:
     name: Docker Acceptance (main / manual)
