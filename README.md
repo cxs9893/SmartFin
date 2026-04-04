@@ -18,15 +18,28 @@
 `finqa report --out json` 返回结构化结果，包含：
 
 - `mode`：报告模式（`single_year` 或 `cross_year`）
-- `report_zh`：中文总结文本
+- `report_zh`：中文总结文本（可选由 LLM 增强）
 - `summary`：统计摘要（年份数、证据数、章节数、选中年份）
 - `highlights`：证据高亮列表
 - `yearly_breakdown`：按年度聚合的证据统计与 Top 章节
 - `evidence`：证据明细（来源文件、年份、章节、段落 ID、片段）
+- `pipeline`：embedding / llm 运行配置快照
+- `llm_error`：LLM 调用失败时的错误信息（默认 `null`）
 
-## 快速开始
+## Embedding + LLM 最小配置
 
-### 1) 本地运行
+### 新增配置项列表
+
+可在 `.env`（或复制 `.env.example`）中配置以下项：
+
+- `FINQA_EMBEDDING_PROVIDER`：embedding provider，默认 `bge`
+- `FINQA_LLM_PROVIDER`：LLM provider，默认 `modelscope_local`
+- `FINQA_ENABLE_LLM`：是否开启报告 LLM 增强（`0/1`）
+- `OPENAI_API_KEY`：OpenAI 兼容接口 key（仅 `openai-compatible` 时使用）
+- `OPENAI_BASE_URL`：OpenAI 兼容接口地址，默认 `https://api.openai.com/v1`
+- `OPENAI_MODEL`：OpenAI 兼容接口模型名，默认 `gpt-4o-mini`
+
+### 最小运行步骤（本地）
 
 ```bash
 python -m venv .venv
@@ -34,19 +47,18 @@ python -m venv .venv
 pip install -e .
 ```
 
-如需启用本地 BGE embedding，请安装可选依赖：
-
 ```bash
-pip install -e ".[embedding]"
-```
-
-```bash
+# 可选：cp .env.example .env 后编辑 key
 finqa ingest --data-dir data --out-dir .finqa
 finqa report --mode cross_year --out json
 finqa report --mode single_year --out json
 ```
 
-### 2) Docker 一键运行
+说明：
+- 当 `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=openai-compatible` 且 `OPENAI_API_KEY` 已配置时，report 会尝试调用远端 LLM 增强 `report_zh`。
+- 其余情况下，自动回退到本地启发式报告，不影响命令可执行性。
+
+## Docker 一键运行
 
 ```bash
 docker-compose up --build
@@ -57,6 +69,15 @@ docker-compose up --build
 1. `finqa ingest --data-dir /app/data --out-dir /app/.finqa`
 2. `finqa report --mode cross_year --out json`
 3. 将报告写入 `/.finqa/report.json`（宿主机同目录可见）
+
+## 一键运行命令清单
+
+- 本地验证：
+  - `python -m pytest -q tests/test_report_writer.py tests/test_container_config.py`
+  - `python -m finqa report --mode cross_year --out json`
+- 容器验证：
+  - `docker-compose config`
+  - `docker-compose up --build -d`
 
 ### Docker 启动失败排查（可操作）
 
@@ -116,18 +137,3 @@ docker-compose logs
 - 小步提交：按功能拆分提交（如 `feat(report)`、`chore(docker)`、`docs(readme)`）
 - 每步可验证：每次改动后至少执行一条可复现命令
 - 结果可交付：输出中包含命令、产物路径、风险说明
-
-## 迭代文档规范
-
-- 统一规范与脚本用法见：
-  - `docs/development-flow.md` 的“规范与自动化”章节
-
-## 当前状态
-
-当前为第 0 阶段 MVP：
-
-- CLI 与模块结构已就绪
-- 导入、检索、问答、报告均可独立执行
-- 已预留可追溯引用字段
-- 容器支持一键 ingest + report 产物落盘
-- 后续可接入真实 embedding、FAISS、BM25、LLM 生成能力

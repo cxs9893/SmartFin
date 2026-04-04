@@ -15,6 +15,10 @@ def test_dockerfile_has_runtime_dirs_and_entry_command():
 def test_compose_runs_ingest_and_report_pipeline():
     content = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
+    assert "env_file" in content
+    assert ".env.example" in content
+    assert "OPENAI_API_KEY" in content
+    assert "FINQA_ENABLE_LLM" in content
     assert "finqa ingest --data-dir /app/data --out-dir /app/.finqa" in content
     assert "finqa report --mode cross_year --out json" in content
     assert "report.json" in content
