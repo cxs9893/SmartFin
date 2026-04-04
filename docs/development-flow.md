@@ -5,6 +5,7 @@
 ## 迭代文档索引
 
 <!-- ITERATION_DOCS_INDEX_START -->
+- ingest: docs/ingest-iteration.md
 - retrieval: docs/retrieval-iteration.md
 <!-- ITERATION_DOCS_INDEX_END -->
 
@@ -258,6 +259,7 @@ flowchart TD
     D7 --> D8[提交 docs/chore]
     D8 --> D9[输出改动与风险说明]
 ```
+
 
 
 
