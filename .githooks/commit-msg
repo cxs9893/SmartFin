@@ -1,0 +1,10 @@
+#!/bin/sh
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+POWERSHELL_EXE="C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+"$POWERSHELL_EXE" -NoProfile -ExecutionPolicy Bypass -File "$REPO_ROOT/scripts/normalize_commit_message_cn.ps1" -CommitMsgFile "$1"
+exit $?
