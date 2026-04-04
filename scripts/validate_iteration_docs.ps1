@@ -43,6 +43,11 @@ if (Test-Path $flowPath) {
 }
 
 foreach ($module in $touchedModules) {
+    if ($module -eq "common") {
+        # common 为共享模块，不要求独立迭代文档。
+        continue
+    }
+
     $docRel = "docs/$module-iteration.md"
     $docRelNorm = $docRel -replace '\\','/'
 

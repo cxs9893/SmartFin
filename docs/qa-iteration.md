@@ -7,6 +7,7 @@
 ## 本次迭代范围（Scope of This Iteration）
 - 范围内（In scope）：
   - `src/finqa/qa/generator.py`：证据门控、英文证据过滤、拒答路径与回答结构化输出。
+  - `src/finqa/qa/generator.py`：新增本地模型（ModelScope）调用路径与 fallback 模板回答。
   - `tests/test_qa_grounded.py`：有证据回答与无证据拒答测试覆盖。
   - `docs/qa-iteration.md`：新增 QA 迭代记录。
   - `docs/development-flow.md`：补充 QA 迭代文档索引。
@@ -40,12 +41,12 @@
 - 命令：
   - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_smoke.py`
   - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_qa_grounded.py`
-  - `$env:PYTHONPATH='src'; finqa ask --q "Apple 2024 risk factors" --out json`
+  - `$env:PYTHONPATH='src'; python -m finqa ask --q "What are the risk factors in 2024?" --out json`
   - `powershell -ExecutionPolicy Bypass -File scripts/validate_iteration_docs.ps1`
 - 结果：
   - `test_smoke.py`：`1 passed`
-  - `test_qa_grounded.py`：`2 passed`
-  - `finqa ask ... --out json`：返回 0，当前索引证据不足时正确拒答
+  - `test_qa_grounded.py`：`3 passed`
+  - `finqa ask ... --out json`：返回 0，当前索引证据不足时正确拒答（本地模型不可用时 fallback 稳定）
   - 迭代文档校验：通过
   - 环境提示：pytest 产生缓存目录权限 warning，不影响本轮通过结论
 

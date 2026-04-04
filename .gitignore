@@ -1,6 +1,7 @@
 ﻿# Project-specific
 node_modules/
 .finqa/
+.modelscope/
 .dmux/
 dev.sh
 tmux-*.log

@@ -13,17 +13,17 @@ VALID_HITS = [
 ]
 
 
-def test_generate_answer_use_llm_when_key_present(monkeypatch):
-    monkeypatch.setenv("FINQA_LLM_PROVIDER", "qwen")
-    monkeypatch.setenv("FINQA_LLM_API_KEY", "dummy-key")
+def test_generate_answer_use_local_model_when_available(monkeypatch):
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+    monkeypatch.setenv("FINQA_LLM_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 
-    def _fake_call(query, citations, config):
+    def _fake_local(query, citations, config):
         assert query == "What are the risk factors in 2024?"
         assert len(citations) == 1
-        assert config["model"] == "qwen3-max-2026-01-23"
+        assert config["model"] == "Qwen/Qwen2.5-0.5B-Instruct"
         return "基于证据，2024年主要风险包括供应链中断和宏观经济波动。"
 
-    monkeypatch.setattr(qa_generator, "_call_qwen_chat", _fake_call)
+    monkeypatch.setattr(qa_generator, "_call_modelscope_local", _fake_local)
 
     answered = generate_answer("What are the risk factors in 2024?", VALID_HITS)
     assert answered["answer_zh"].startswith("基于证据")
@@ -31,9 +31,14 @@ def test_generate_answer_use_llm_when_key_present(monkeypatch):
     assert len(answered["citations"]) == 1
 
 
-def test_generate_answer_fallback_template_when_no_key(monkeypatch):
-    monkeypatch.setenv("FINQA_LLM_PROVIDER", "qwen")
-    monkeypatch.delenv("FINQA_LLM_API_KEY", raising=False)
+def test_generate_answer_fallback_template_when_local_unavailable(monkeypatch):
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+
+    def _fake_local(query, citations, config):
+        _ = (query, citations, config)
+        return None
+
+    monkeypatch.setattr(qa_generator, "_call_modelscope_local", _fake_local)
 
     answered = generate_answer("What are the risk factors in 2024?", VALID_HITS)
     assert "根据检索到的英文财报证据" in answered["answer_zh"]

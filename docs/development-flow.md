@@ -45,7 +45,8 @@
   - `powershell -ExecutionPolicy Bypass -File scripts/validate_iteration_docs.ps1`
 - 规则：
   - 若本次改动涉及 `src/finqa/<module>/`，则必须包含 `docs/<module>-iteration.md` 改动
-  - `docs/development-flow.md` 中必须存在对应模块链接
+  - `common` 模块为共享模块例外：不要求独立迭代文档
+  - 对非 `common` 模块，`docs/development-flow.md` 中必须存在对应模块链接
   - 不满足时返回非零退出码并输出错误
 
 ### 测试 Skill（标准化执行与输出）

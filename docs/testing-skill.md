@@ -14,6 +14,10 @@
 1. 环境确认
 - `git status --short --branch`
 - `git rev-parse --short HEAD`
+- 若涉及本地 LLM：
+  - 依赖检查：`python -c "import torch, transformers, modelscope; print('ok')"`
+  - 模型目录检查：确认 `FINQA_LLM_MODEL` 指向路径存在（或模型 ID 可下载）
+  - 代理检查：确认 `HTTP_PROXY/HTTPS_PROXY/ALL_PROXY` 不会阻断模型下载
 
 2. 变更定位
 - `git diff --name-only HEAD~1..HEAD`（或当前工作区改动）
@@ -30,13 +34,23 @@
 - 若改动包含 embedding/provider，必须补充：
 - Provider 正常路径验证（本地模型可用）
 - Fallback 路径验证（模型缺失或依赖缺失时流程不中断）
+- `qa(本地LLM)`：至少覆盖两条路径
+  - 路径 A：本地模型可用（真实目录或 mock 调用）
+  - 路径 B：本地模型不可用时 fallback 模板回答
+- `qa(拒答)`：无有效证据时必须拒答，且结构不变（`answer_zh/confidence/citations`）
 
 5. CLI 链路验证
 - 至少执行 1 条本模块相关 CLI 命令
 - 示例：`finqa ingest ...` / `finqa ask ...` / `finqa report ...`
+- 若模块接入本地 LLM，CLI 建议按场景执行：
+  - 场景 A：`FINQA_LLM_PROVIDER=modelscope_local` 且本地模型目录可用
+  - 场景 B：本地模型不可用（或禁用），验证 fallback 路径
 
 6. 验收映射
 - 将结果映射到验收门槛，逐条标注：`PASS` / `FAIL` / `N/A`
+- 若模块接入本地 LLM，新增验收项：
+  - `本地模型可用性`
+  - `降级稳定性（fallback + 拒答）`
 
 ## 4. 执行规范
 - 只报告真实执行结果，禁止“推测通过”。
@@ -72,6 +86,8 @@
 ### 验收映射
 - 功能可用性：`PASS/FAIL/N/A`（证据：...）
 - 可追溯字段完整性：`PASS/FAIL/N/A`（证据：...）
+- 本地模型可用性：`PASS/FAIL/N/A`（证据：模型加载或最小推理命令）
+- 降级稳定性：`PASS/FAIL`（证据：fallback 命令/测试结果）
 - 容器可运行性：`PASS/FAIL/N/A`（证据：...）
 - 文档完整性：`PASS/FAIL/N/A`（证据：...）
 
@@ -104,11 +120,17 @@
     "status": "PASS",
     "smoke": "PASS",
     "module_tests": "PASS",
-    "cli_validation": "PASS"
+    "cli_validation": "PASS",
+    "local_model_path_check": "PASS",
+    "local_model_infer_check": "PASS",
+    "fallback_path_check": "PASS",
+    "proxy_env_check": "PASS"
   },
   "acceptance_mapping": [
     {"item": "功能可用性", "status": "PASS", "evidence": "finqa ask 命令返回 0"},
-    {"item": "可追溯字段完整性", "status": "PASS", "evidence": "citations 包含 source_file/fiscal_year/section/paragraph_id/quote_en"}
+    {"item": "可追溯字段完整性", "status": "PASS", "evidence": "citations 包含 source_file/fiscal_year/section/paragraph_id/quote_en"},
+    {"item": "本地模型可用性", "status": "PASS", "evidence": "模型路径存在且可完成最小推理"},
+    {"item": "降级稳定性", "status": "PASS", "evidence": "本地模型不可用时仍可 fallback 与拒答"}
   ],
   "risks": [],
   "blockers": [],
@@ -157,6 +179,8 @@
 - 是否网络/代理导致
 - 是否已验证 fallback 可用
 - 后续如何恢复 provider 正常路径（例如本地模型目录预置）
+- 若本地模型下载受网络或代理限制，可将“本地模型可用性”标记 `N/A`，
+  但必须提供 fallback/拒答路径通过证据与后续补测计划。
 
 ## 8. 全量验收建议（Main Merge Gate）
 1. 基础回归

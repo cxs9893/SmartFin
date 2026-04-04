@@ -1,10 +1,7 @@
 ﻿from __future__ import annotations
 
-import json
 import os
 import re
-import urllib.error
-import urllib.request
 from typing import Any
 
 from finqa.common.settings import settings
@@ -12,6 +9,7 @@ from finqa.common.settings import settings
 
 _REFUSAL_MESSAGE = "证据不足，暂时无法给出可靠回答。"
 _ENGLISH_RE = re.compile(r"[A-Za-z]")
+_MODEL_CACHE: dict[str, tuple[Any, Any, str]] = {}
 
 
 def _normalize_text(value: Any) -> str:
@@ -42,7 +40,7 @@ def _build_citation(hit: dict[str, Any]) -> dict[str, str] | None:
     }
 
 
-def _build_answer(citations: list[dict[str, str]]) -> str:
+def _build_template_answer(citations: list[dict[str, str]]) -> str:
     lines = ["根据检索到的英文财报证据，可以确认："]
     for idx, item in enumerate(citations, start=1):
         lines.append(
@@ -62,10 +60,9 @@ def _get_env(name: str, default: str) -> str:
 def _resolve_llm_config() -> dict[str, str | int]:
     return {
         "provider": _get_env("FINQA_LLM_PROVIDER", settings.llm_provider).lower(),
-        "api_key": _get_env("FINQA_LLM_API_KEY", settings.llm_api_key),
-        "base_url": _get_env("FINQA_LLM_BASE_URL", settings.llm_base_url).rstrip("/"),
         "model": _get_env("FINQA_LLM_MODEL", settings.llm_model),
-        "timeout_seconds": int(_get_env("FINQA_LLM_TIMEOUT_SECONDS", str(settings.llm_timeout_seconds))),
+        "device": _get_env("FINQA_LLM_DEVICE", settings.llm_device),
+        "max_new_tokens": int(_get_env("FINQA_LLM_MAX_NEW_TOKENS", str(settings.llm_max_new_tokens))),
     }
 
 
@@ -76,57 +73,84 @@ def _build_messages(query: str, citations: list[dict[str, str]]) -> list[dict[st
             f"[E{idx}] source_file={c['source_file']} | fiscal_year={c['fiscal_year']} | "
             f"section={c['section']} | paragraph_id={c['paragraph_id']} | quote_en={c['quote_en']}"
         )
+
     system_prompt = (
-        "You are a grounded financial QA assistant. "
-        "Use only the provided evidence quotes. "
-        "Do not add facts beyond evidence. "
-        "Answer in Chinese only."
+        "你是财报问答助手。你只能使用给定证据作答，不能引入任何证据之外的信息。"
+        "如证据不足必须回答：证据不足，暂时无法给出可靠回答。"
+        "输出中文。"
     )
     user_prompt = (
-        f"Question: {query}\n\n"
-        "Evidence:\n"
+        f"问题：{query}\n\n"
+        "证据如下：\n"
         + "\n".join(evidence_lines)
-        + "\n\nOutput constraints:\n"
-        "- Provide a concise Chinese answer based only on evidence.\n"
-        "- If evidence is insufficient, reply exactly: 证据不足，暂时无法给出可靠回答。"
+        + "\n\n请基于证据给出简洁中文答案。"
     )
     return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
 
-def _call_qwen_chat(query: str, citations: list[dict[str, str]], config: dict[str, str | int]) -> str | None:
-    api_key = str(config["api_key"])
-    if not api_key:
-        return None
-
-    payload = {
-        "model": str(config["model"]),
-        "messages": _build_messages(query, citations),
-        "temperature": 0.0,
-    }
-    req = urllib.request.Request(
-        url=f"{config['base_url']}/chat/completions",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=int(config["timeout_seconds"])) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+def _call_modelscope_local(
+    query: str,
+    citations: list[dict[str, str]],
+    config: dict[str, str | int],
+) -> str | None:
+    model_id = str(config["model"])
+    if not model_id:
         return None
 
     try:
-        content = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+    except Exception:
         return None
 
-    content_text = str(content).strip()
-    if not content_text:
+    device_pref = str(config["device"]).lower()
+    if device_pref == "cpu":
+        device = "cpu"
+    elif device_pref == "cuda":
+        device = "cuda"
+    else:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    cache_key = f"{model_id}::{device}"
+    cached = _MODEL_CACHE.get(cache_key)
+    if cached is None:
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+            model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
+        except Exception:
+            return None
+        if device == "cuda":
+            model = model.to("cuda")
+        _MODEL_CACHE[cache_key] = (tokenizer, model, device)
+        cached = _MODEL_CACHE[cache_key]
+
+    tokenizer, model, device = cached
+    messages = _build_messages(query, citations)
+
+    try:
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except Exception:
+        prompt = f"{messages[0]['content']}\n\n{messages[1]['content']}\n\n回答："
+
+    try:
+        inputs = tokenizer(prompt, return_tensors="pt")
+        if device == "cuda":
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=int(config["max_new_tokens"]),
+            do_sample=False,
+            temperature=0.0,
+        )
+        generated = outputs[0][inputs["input_ids"].shape[1] :]
+        answer = tokenizer.decode(generated, skip_special_tokens=True).strip()
+    except Exception:
         return None
-    return content_text
+
+    if not answer:
+        return None
+    return answer
 
 
 def generate_answer(query: str, hits: list[dict[str, Any]]) -> dict[str, Any]:
@@ -156,14 +180,14 @@ def generate_answer(query: str, hits: list[dict[str, Any]]) -> dict[str, Any]:
     config = _resolve_llm_config()
     answer_zh = ""
     used_llm = False
-    if str(config["provider"]) in {"qwen", "openai"}:
-        llm_answer = _call_qwen_chat(query, citations, config)
+    if str(config["provider"]) in {"modelscope_local", "local"}:
+        llm_answer = _call_modelscope_local(query, citations, config)
         if llm_answer:
             answer_zh = llm_answer
             used_llm = True
 
     if not answer_zh:
-        answer_zh = _build_answer(citations)
+        answer_zh = _build_template_answer(citations)
 
     confidence = min(0.9, 0.5 + 0.1 * len(citations))
     if not used_llm:
