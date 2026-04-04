@@ -30,6 +30,9 @@ jobs:
           pip install -e .
           pip install pytest
 
+      - name: Prepare pytest cache directory
+        run: mkdir -p .finqa
+
       # Enforce iteration-doc process: module code changes must have doc updates.
       - name: Validate iteration docs
         shell: pwsh
@@ -83,6 +86,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install pytest
+
+      - name: Prepare pytest cache directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path .finqa | Out-Null
 
       # Keep a Windows-specific gate for encoding/path behavior.
       - name: Run smoke + report encoding tests

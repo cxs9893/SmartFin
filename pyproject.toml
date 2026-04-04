@@ -35,4 +35,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 cache_dir = ".finqa/.pytest_cache"
-addopts = "--basetemp=.finqa/.pytest_tmp"
