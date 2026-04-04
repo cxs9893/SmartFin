@@ -46,6 +46,13 @@
   - `docs/development-flow.md` 中必须存在对应模块链接
   - 不满足时返回非零退出码并输出错误
 
+### 测试 Skill（标准化执行与输出）
+- 文档：`docs/testing-skill.md`
+- 用途：
+  - 统一测试步骤（环境确认、专项测试、CLI 验证、验收映射）
+  - 统一输出格式（Markdown + JSON）
+  - 作为并行分支合并前的测试执行基线
+
 ## 总体流程图
 
 ```mermaid

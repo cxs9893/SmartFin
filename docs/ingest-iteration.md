@@ -48,16 +48,24 @@
 
 ## 验证与结果（Validation and Results）
 - 命令：
-  - `python -m pip install pytest`
-  - `$env:PYTHONPATH='src'; python -m pytest -q`
+  - `git status --short --branch`
+  - `git rev-parse --short HEAD`
+  - `git diff --name-only HEAD~1..HEAD`
+  - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_smoke.py`
+  - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_ingest_index.py`
+  - `$env:PYTHONPATH='src'; python -m finqa ingest --data-dir data --out-dir .finqa_retest`
 - 结果：
-  - `2 passed`（含 `test_ingest_index_idempotent_and_retrievable`）。
-  - ingest/index 链路可重复执行，且产物结构与字段满足预期。
+  - `test_smoke.py`：`1 passed`
+  - `test_ingest_index.py`：`1 passed`
+  - CLI 验证成功，`.finqa_retest/chunks/chunks.jsonl` 产出 `150` 条 chunk。
+  - `hybrid_search(top_k=3)` 命中 `3` 条，`citation` 字段包含 `source_file/fiscal_year/section/paragraph_id/quote_en`。
 
 ## 本迭代提交记录（Commits in This Iteration）
 - `a027613` `feat(ingest): stabilize json chunks and persist bm25-faiss indices`
 - `65958df` `test(ingest): verify idempotent build and stable index layout`
 - `95f8422` `docs: 新增ingest与索引迭代结果文档`
+- `3a40bc9` `feat(ingest): 支持SQL键结构JSON与SEC字段映射`
+- `6d6cf1a` `test(ingest): 对齐混合检索输出契约并补充SQL键结构用例`
 
 ## 已知风险/限制（Known Risks / Limitations）
 - 风险 1：当前 retrieval 主路径仍偏向 `manifest -> chunks` 的简化读取，尚未充分消费 BM25/FAISS 分数融合。
