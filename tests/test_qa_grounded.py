@@ -15,12 +15,12 @@ VALID_HITS = [
 
 def test_generate_answer_use_local_model_when_available(monkeypatch):
     monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
-    monkeypatch.setenv("FINQA_LLM_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
+    monkeypatch.setenv("FINQA_LLM_MODEL", "models/Qwen2___5-0___5B-Instruct")
 
     def _fake_local(query, citations, config):
         assert query == "What are the risk factors in 2024?"
         assert len(citations) == 1
-        assert config["model"] == "Qwen/Qwen2.5-0.5B-Instruct"
+        assert config["model"] == "models/Qwen2___5-0___5B-Instruct"
         return "基于证据，2024年主要风险包括供应链中断和宏观经济波动。"
 
     monkeypatch.setattr(qa_generator, "_call_modelscope_local", _fake_local)
@@ -64,3 +64,17 @@ def test_generate_answer_refuse_without_complete_english_evidence():
     assert "证据不足" in refused["answer_zh"]
     assert refused["confidence"] == 0.0
     assert refused["citations"] == []
+
+
+def test_call_modelscope_local_skip_remote_when_local_only_and_model_not_local_path():
+    out = qa_generator._call_modelscope_local(
+        query="q",
+        citations=VALID_HITS,
+        config={
+            "model": "Qwen/Qwen2.5-0.5B-Instruct",
+            "device": "cpu",
+            "max_new_tokens": 32,
+            "local_files_only": True,
+        },
+    )
+    assert out is None

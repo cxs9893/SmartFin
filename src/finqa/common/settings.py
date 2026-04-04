@@ -12,9 +12,10 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("data"))
     index_dir: Path = Field(default=Path(".finqa/index"))
     llm_provider: str = "modelscope_local"
-    llm_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    llm_model: str = "models/Qwen2___5-0___5B-Instruct"
     llm_device: str = "auto"
     llm_max_new_tokens: int = 192
+    llm_local_files_only: bool = True
 
     embedding_provider: str = "bge"
     embedding_batch_size: int = 32

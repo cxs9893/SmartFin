@@ -2,6 +2,7 @@
 
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 from finqa.common.settings import settings
@@ -57,12 +58,19 @@ def _get_env(name: str, default: str) -> str:
     return str(value).strip()
 
 
+def _to_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _resolve_llm_config() -> dict[str, str | int]:
     return {
         "provider": _get_env("FINQA_LLM_PROVIDER", settings.llm_provider).lower(),
         "model": _get_env("FINQA_LLM_MODEL", settings.llm_model),
         "device": _get_env("FINQA_LLM_DEVICE", settings.llm_device),
         "max_new_tokens": int(_get_env("FINQA_LLM_MAX_NEW_TOKENS", str(settings.llm_max_new_tokens))),
+        "local_files_only": _to_bool(
+            _get_env("FINQA_LLM_LOCAL_FILES_ONLY", str(settings.llm_local_files_only))
+        ),
     }
 
 
@@ -93,8 +101,14 @@ def _call_modelscope_local(
     citations: list[dict[str, str]],
     config: dict[str, str | int],
 ) -> str | None:
-    model_id = str(config["model"])
-    if not model_id:
+    model_ref = str(config["model"]).strip()
+    if not model_ref:
+        return None
+    local_files_only = bool(config["local_files_only"])
+
+    model_path = Path(model_ref)
+    is_local_path = model_path.exists()
+    if local_files_only and not is_local_path:
         return None
 
     try:
@@ -111,12 +125,16 @@ def _call_modelscope_local(
     else:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    cache_key = f"{model_id}::{device}"
+    cache_key = f"{model_ref}::{device}::{int(local_files_only)}"
     cached = _MODEL_CACHE.get(cache_key)
     if cached is None:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-            model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_ref, trust_remote_code=True, local_files_only=local_files_only
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                model_ref, trust_remote_code=True, local_files_only=local_files_only
+            )
         except Exception:
             return None
         if device == "cuda":
