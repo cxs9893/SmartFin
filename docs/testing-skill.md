@@ -115,3 +115,34 @@
 1. 在每个并行分支合并前执行本 Skill。
 2. 将 Markdown 输出粘贴到对应 `docs/<module>-iteration.md` 的 `Validation and Results`。
 3. 将 JSON 输出作为自动化流水线或后续报表输入。
+
+## 8. 全量验收建议（Main Merge Gate）
+在分支准备合入 `main` 前，建议按以下顺序执行一次全量验收：
+
+1. 基础回归
+- `git status --short --branch`
+- `python -m pytest -q tests/test_smoke.py`
+
+2. 模块专项
+- ingest/indexing：`python -m pytest -q tests/test_ingest_index.py`
+- retrieval：`python -m pytest -q tests/test_retrieval_hybrid.py`
+- 其他模块按对应测试文件补齐执行。
+
+3. CLI 链路最小可用验证
+- `python -m finqa ingest --data-dir data --out-dir .finqa_ci`
+- `python -m finqa ask --q "revenue" --out json`
+- `python -m finqa report --mode cross_year --out json`
+
+4. 容器链路（建议至少每日一次）
+- `docker-compose up --build`
+- 在容器内验证至少一条 ingest + ask/report 命令链路。
+
+5. 验收门槛判定
+- 功能可用性：PASS（CLI 命令可执行）
+- 可追溯字段完整性：PASS（citation 至少含 `source_file/fiscal_year/section/paragraph_id/quote_en`）
+- 容器可运行性：PASS（compose 可拉起并执行最小链路）
+- 文档完整性：PASS（对应 `docs/<module>-iteration.md` 与 `docs/development-flow.md` 索引已更新）
+
+6. 结果固化建议
+- 将本次测试命令、退出码、关键输出摘要回填到 `docs/<module>-iteration.md` 的 `Validation and Results`。
+- 若存在 FAIL/N/A，必须显式记录风险与阻塞项，禁止直接给出“全绿”结论。
