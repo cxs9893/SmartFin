@@ -52,6 +52,46 @@ docker-compose up --build
 2. `finqa report --mode cross_year --out json`
 3. 将报告写入 `/.finqa/report.json`（宿主机同目录可见）
 
+### Docker 启动失败排查（可操作）
+
+若 `docker-compose up --build` 失败，可按以下顺序排查：
+
+1. 环境检测（Docker daemon / compose）
+
+```bash
+docker version
+docker-compose version
+docker info
+```
+
+2. 网络与镜像仓库连通性检测（Windows PowerShell）
+
+```powershell
+nslookup auth.docker.io
+Test-NetConnection auth.docker.io -Port 443
+Test-NetConnection registry-1.docker.io -Port 443
+```
+
+3. 先手动拉取基础镜像再构建（降低首次构建失败率）
+
+```bash
+docker pull python:3.11-slim
+docker-compose up --build -d
+```
+
+4. 若仍失败，检查容器与构建日志
+
+```bash
+docker ps -a
+docker logs smartfin
+docker-compose logs
+```
+
+5. 常见修复项
+- 执行 `docker login` 重新刷新 Docker Hub 认证。
+- 在 Docker Desktop 配置代理（Settings -> Resources -> Proxies）。
+- 调整系统 DNS（如 `1.1.1.1` / `8.8.8.8`）后重启 Docker Desktop。
+
 ## 评估指标（MVP）
 
 当前报告能力建议用以下指标评估：
