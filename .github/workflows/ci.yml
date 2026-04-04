@@ -124,9 +124,17 @@ jobs:
           docker ps --filter "name=smartfin"
           docker logs smartfin --tail 100
 
-      - name: Collect container report artifact
+      # The report file may appear a few seconds after container start.
+      - name: Wait and collect container report artifact
         run: |
-          test -f .finqa/report.json
+          mkdir -p .finqa
+          for i in {1..30}; do
+            if [ -f .finqa/report.json ]; then
+              break
+            fi
+            sleep 2
+          done
+          test -f .finqa/report.json || (echo "report.json not found after wait"; docker logs smartfin --tail 200; exit 1)
           ls -la .finqa
 
       - name: Upload container artifacts
@@ -135,6 +143,7 @@ jobs:
           name: finqa-ci-docker
           path: .finqa
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Cleanup docker compose
         if: always()
