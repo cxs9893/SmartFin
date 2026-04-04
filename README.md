@@ -34,6 +34,12 @@ python -m venv .venv
 pip install -e .
 ```
 
+如需启用本地 BGE embedding，请安装可选依赖：
+
+```bash
+pip install -e ".[embedding]"
+```
+
 ```bash
 finqa ingest --data-dir data --out-dir .finqa
 finqa report --mode cross_year --out json

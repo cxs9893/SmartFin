@@ -18,6 +18,9 @@ dependencies = [
 llm = [
   "llama-cpp-python>=0.2.79"
 ]
+embedding = [
+  "sentence-transformers>=2.7.0"
+]
 
 [project.scripts]
 finqa = "finqa.cli:app"

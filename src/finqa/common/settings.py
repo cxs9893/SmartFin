@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     embedding_bge_device: str = "cpu"
     embedding_bge_local_files_only: bool = True
     embedding_bge_trust_remote_code: bool = False
+    embedding_strict_mode: bool = False
 
     embedding_hash_dim: int = 256
 
