@@ -6,11 +6,15 @@ import re
 from pathlib import Path
 from typing import Any
 
+import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-DEFAULT_BM25_WEIGHT = 0.6
-DEFAULT_VECTOR_WEIGHT = 0.4
+from finqa.common.settings import Settings
+from finqa.indexing.embeddings import embed_texts
+
+DEFAULT_BM25_WEIGHT = 0.4
+DEFAULT_VECTOR_WEIGHT = 0.6
 DEFAULT_VECTOR_DIM = 256
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+|[\u4e00-\u9fff]+")
 
@@ -35,6 +39,17 @@ def _load_chunks(index_dir: Path) -> list[dict[str, Any]]:
             if isinstance(payload, dict):
                 chunks.append(payload)
     return chunks
+
+
+def _load_index_meta(index_dir: Path) -> dict[str, Any]:
+    meta_path = index_dir / "index_meta.json"
+    if not meta_path.exists():
+        return {}
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _ensure_weights(bm25_weight: float, vector_weight: float) -> tuple[float, float]:
@@ -70,6 +85,64 @@ def _embedding(text: str, dim: int = DEFAULT_VECTOR_DIM) -> np.ndarray:
     return vec
 
 
+def _embed_query_with_index_meta(query: str, index_meta: dict[str, Any]) -> np.ndarray:
+    cfg = Settings()
+    provider = str(index_meta.get("embedding_provider") or cfg.embedding_provider).strip().lower()
+    model = str(index_meta.get("embedding_model") or cfg.embedding_bge_model)
+    dim = int(index_meta.get("embedding_dim") or cfg.embedding_hash_dim or DEFAULT_VECTOR_DIM)
+
+    if provider == "hash":
+        query_cfg = Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, dim))
+    elif provider == "bge":
+        query_cfg = Settings(
+            _env_file=None,
+            embedding_provider="bge",
+            embedding_bge_model=model,
+            embedding_bge_dim=max(8, dim),
+            embedding_bge_device=cfg.embedding_bge_device,
+            embedding_bge_local_files_only=cfg.embedding_bge_local_files_only,
+            embedding_bge_trust_remote_code=cfg.embedding_bge_trust_remote_code,
+            embedding_batch_size=cfg.embedding_batch_size,
+        )
+    else:
+        query_cfg = Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, dim))
+
+    vectors, info = embed_texts([query], query_cfg)
+    query_vec = np.asarray(vectors[0], dtype=np.float32)
+
+    # Guarantee fallback-to-hash behavior when provider output cannot match the index dim.
+    if query_vec.shape[0] != dim:
+        hash_cfg = Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, dim))
+        hash_vectors, hash_info = embed_texts([query], hash_cfg)
+        query_vec = np.asarray(hash_vectors[0], dtype=np.float32)
+        _ = hash_info
+
+    _ = info
+    return query_vec
+
+
+def _build_embedding_cfg(index_meta: dict[str, Any]) -> Settings:
+    cfg = Settings()
+    provider = str(index_meta.get("embedding_provider") or cfg.embedding_provider).strip().lower()
+    model = str(index_meta.get("embedding_model") or cfg.embedding_bge_model)
+    dim = int(index_meta.get("embedding_dim") or cfg.embedding_hash_dim or DEFAULT_VECTOR_DIM)
+
+    if provider == "hash":
+        return Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, dim))
+    if provider == "bge":
+        return Settings(
+            _env_file=None,
+            embedding_provider="bge",
+            embedding_bge_model=model,
+            embedding_bge_dim=max(8, dim),
+            embedding_bge_device=cfg.embedding_bge_device,
+            embedding_bge_local_files_only=cfg.embedding_bge_local_files_only,
+            embedding_bge_trust_remote_code=cfg.embedding_bge_trust_remote_code,
+            embedding_batch_size=cfg.embedding_batch_size,
+        )
+    return Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, dim))
+
+
 def _score_bm25(query: str, chunks: list[dict[str, Any]]) -> np.ndarray:
     docs = [_tokenize(str(chunk.get("text") or "")) for chunk in chunks]
     q_tokens = _tokenize(query)
@@ -80,7 +153,7 @@ def _score_bm25(query: str, chunks: list[dict[str, Any]]) -> np.ndarray:
     return np.asarray(bm25.get_scores(q_tokens), dtype=float)
 
 
-def _score_vector(query: str, chunks: list[dict[str, Any]]) -> np.ndarray:
+def _score_vector_hash(query: str, chunks: list[dict[str, Any]]) -> np.ndarray:
     if not chunks or not query.strip():
         return np.zeros(len(chunks), dtype=float)
 
@@ -90,6 +163,82 @@ def _score_vector(query: str, chunks: list[dict[str, Any]]) -> np.ndarray:
 
     doc_matrix = np.vstack([_embedding(str(chunk.get("text") or "")) for chunk in chunks])
     return (doc_matrix @ q_vec).astype(float)
+
+
+def _score_vector_embedding_model(query: str, chunks: list[dict[str, Any]], index_meta: dict[str, Any]) -> np.ndarray | None:
+    if not query.strip() or not chunks:
+        return np.zeros(len(chunks), dtype=float)
+
+    try:
+        cfg = _build_embedding_cfg(index_meta)
+        texts = [query] + [str(chunk.get("text") or "") for chunk in chunks]
+        vectors, _ = embed_texts(texts, cfg)
+        if vectors.ndim != 2 or vectors.shape[0] != len(texts):
+            return None
+        query_vec = np.asarray(vectors[0], dtype=np.float32)
+        doc_matrix = np.asarray(vectors[1:], dtype=np.float32)
+        return (doc_matrix @ query_vec).astype(float)
+    except Exception:
+        return None
+
+
+def _score_vector_faiss(query: str, chunks: list[dict[str, Any]], index_dir: Path) -> np.ndarray | None:
+    faiss_path = index_dir / "faiss" / "index.faiss"
+    id_map_path = index_dir / "faiss" / "id_map.json"
+    index_meta = _load_index_meta(index_dir)
+
+    if not (faiss_path.exists() and id_map_path.exists() and index_meta):
+        return None
+
+    if not query.strip() or not chunks:
+        return np.zeros(len(chunks), dtype=float)
+
+    try:
+        index = faiss.read_index(str(faiss_path))
+        id_map_payload = json.loads(id_map_path.read_text(encoding="utf-8"))
+        if not isinstance(id_map_payload, list):
+            return None
+
+        id_map = [str(item) for item in id_map_payload]
+        chunk_id_to_pos: dict[str, int] = {}
+        for i, chunk in enumerate(chunks):
+            chunk_id = str(chunk.get("chunk_id") or "")
+            if chunk_id:
+                chunk_id_to_pos[chunk_id] = i
+
+        query_vec = _embed_query_with_index_meta(query, index_meta)
+        if query_vec.shape[0] != index.d:
+            hash_cfg = Settings(_env_file=None, embedding_provider="hash", embedding_hash_dim=max(8, int(index.d)))
+            hash_vectors, _ = embed_texts([query], hash_cfg)
+            query_vec = np.asarray(hash_vectors[0], dtype=np.float32)
+
+        search_k = min(max(1, len(id_map)), max(1, len(chunks)))
+        sims, ids = index.search(query_vec.reshape(1, -1).astype(np.float32), search_k)
+
+        scores = np.zeros(len(chunks), dtype=float)
+        for sim, idx in zip(sims[0], ids[0], strict=False):
+            if idx < 0 or idx >= len(id_map):
+                continue
+            chunk_id = str(id_map[int(idx)])
+            pos = chunk_id_to_pos.get(chunk_id)
+            if pos is None:
+                continue
+            scores[pos] = float(sim)
+        return scores
+    except Exception:
+        return None
+
+
+def _score_vector(query: str, chunks: list[dict[str, Any]], index_dir: Path) -> np.ndarray:
+    index_meta = _load_index_meta(index_dir)
+    model_scores = _score_vector_embedding_model(query, chunks, index_meta)
+    if model_scores is not None:
+        return model_scores
+
+    faiss_scores = _score_vector_faiss(query, chunks, index_dir)
+    if faiss_scores is not None:
+        return faiss_scores
+    return _score_vector_hash(query, chunks)
 
 
 def _citation_from_chunk(chunk: dict[str, Any]) -> dict[str, str]:
@@ -120,7 +269,7 @@ def hybrid_search(
     bm25_weight, vector_weight = _ensure_weights(bm25_weight, vector_weight)
 
     bm25_scores = _score_bm25(query, chunks)
-    vector_scores = _score_vector(query, chunks)
+    vector_scores = _score_vector(query, chunks, index_dir)
     bm25_norm = _normalize_scores(bm25_scores)
     vector_norm = _normalize_scores(vector_scores)
 
