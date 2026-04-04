@@ -1,9 +1,11 @@
 ﻿from __future__ import annotations
 
+import re
 from typing import Any
 
 
 _REFUSAL_MESSAGE = "证据不足，暂时无法给出可靠回答。"
+_ENGLISH_RE = re.compile(r"[A-Za-z]")
 
 
 def _normalize_text(value: Any) -> str:
@@ -22,6 +24,9 @@ def _build_citation(hit: dict[str, Any]) -> dict[str, str] | None:
     if not all([source_file, fiscal_year, section, paragraph_id, quote_en]):
         return None
 
+    if _ENGLISH_RE.search(quote_en) is None:
+        return None
+
     return {
         "source_file": source_file,
         "fiscal_year": fiscal_year,
@@ -32,13 +37,12 @@ def _build_citation(hit: dict[str, Any]) -> dict[str, str] | None:
 
 
 def _build_answer(citations: list[dict[str, str]]) -> str:
-    top = citations[0]
-    lines = [
-        "根据检索到的英文财报证据，可以确认：",
-        f"- 相关年份：{top['fiscal_year']}",
-        f"- 相关章节：{top['section']}",
-        "- 关键信息：以上结论仅来自下方引用段落。",
-    ]
+    lines = ["根据检索到的英文财报证据，可以确认："]
+    for idx, item in enumerate(citations, start=1):
+        lines.append(
+            f"- 证据[{idx}]：{item['fiscal_year']} 年 {item['section']}（段落 {item['paragraph_id']}）"
+        )
+    lines.append("- 结论范围：仅依据以上引用证据，不包含未检索到的信息。")
     return "\n".join(lines)
 
 

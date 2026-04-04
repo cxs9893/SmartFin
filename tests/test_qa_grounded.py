@@ -15,6 +15,7 @@ def test_generate_answer_grounded_and_refusal():
 
     answered = generate_answer(query, hits)
     assert "根据检索到的英文财报证据" in answered["answer_zh"]
+    assert "证据[1]" in answered["answer_zh"]
     assert answered["confidence"] > 0.0
     assert len(answered["citations"]) == 1
 
@@ -25,7 +26,21 @@ def test_generate_answer_grounded_and_refusal():
     assert citation["paragraph_id"] == "Item 1A. Risk Factors-00001"
     assert citation["quote_en"].startswith("Our business is subject to substantial risks")
 
-    refused = generate_answer(query, [{"section": "Item 1A", "text": ""}])
+
+def test_generate_answer_refuse_without_complete_english_evidence():
+    query = "What are the risk factors in 2024?"
+    hits = [
+        {"section": "Item 1A", "text": ""},
+        {
+            "source_file": "AAPL_2024_10K.json",
+            "fiscal_year": "2024",
+            "section": "Item 1A. Risk Factors",
+            "paragraph_id": "Item 1A. Risk Factors-00001",
+            "text": "仅中文内容，不满足英文引用要求",
+        },
+    ]
+
+    refused = generate_answer(query, hits)
     assert "证据不足" in refused["answer_zh"]
     assert refused["confidence"] == 0.0
     assert refused["citations"] == []
