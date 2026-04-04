@@ -12,5 +12,17 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("data"))
     index_dir: Path = Field(default=Path(".finqa/index"))
 
+    embedding_provider: str = "bge"
+    embedding_batch_size: int = 32
+    embedding_timeout_seconds: float = 30.0
+
+    embedding_bge_model: str = "models/bge-base-zh-v1.5"
+    embedding_bge_dim: int = 768
+    embedding_bge_device: str = "cpu"
+    embedding_bge_local_files_only: bool = True
+    embedding_bge_trust_remote_code: bool = False
+
+    embedding_hash_dim: int = 256
+
 
 settings = Settings()

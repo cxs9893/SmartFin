@@ -8,6 +8,12 @@ from finqa.retrieval.hybrid import hybrid_search
 
 
 def test_ingest_index_idempotent_and_retrievable(tmp_path):
+    import os
+
+    os.environ["FINQA_EMBEDDING_PROVIDER"] = "bge"
+    os.environ["FINQA_EMBEDDING_BGE_LOCAL_FILES_ONLY"] = "true"
+    os.environ["FINQA_EMBEDDING_BGE_MODEL"] = "__missing_local_bge_model__"
+
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     nested = data_dir / "nested"
@@ -82,6 +88,14 @@ def test_ingest_index_idempotent_and_retrievable(tmp_path):
 
     manifest_target = (index_dir / "manifest.txt").read_text(encoding="utf-8").strip()
     assert manifest_target == str(chunks_path.resolve())
+    meta = json.loads((index_dir / "index_meta.json").read_text(encoding="utf-8"))
+    assert meta["embedding_requested_provider"] == "bge"
+    assert meta["embedding_provider"] == "hash"
+    assert meta["embedding_model"].startswith("hash-")
+    assert int(meta["embedding_dim"]) > 0
+    assert meta.get("embedding_fallback_from") == "bge"
+    fallback_reason = str(meta.get("embedding_fallback_reason", ""))
+    assert "sentence_transformers_not_installed" in fallback_reason or "local_model_load_failed" in fallback_reason
 
     chunks = [json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(chunks) == 3
