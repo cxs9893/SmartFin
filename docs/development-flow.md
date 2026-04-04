@@ -6,9 +6,9 @@
 
 <!-- ITERATION_DOCS_INDEX_START -->
 - ingest: docs/ingest-iteration.md
+- report: docs/report-iteration.md
 - retrieval: docs/retrieval-iteration.md
 - qa: docs/qa-iteration.md
-- report: docs/report-iteration.md（待创建）
 <!-- ITERATION_DOCS_INDEX_END -->
 
 ## 规范与自动化
@@ -268,15 +268,3 @@ flowchart TD
     D7 --> D8[提交 docs/chore]
     D8 --> D9[输出改动与风险说明]
 ```
-
-
-
-
-
-
-
-
-
-
-
-
