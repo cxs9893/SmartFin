@@ -46,3 +46,27 @@ Expected fields in `index_meta.json`:
 ## Fallback Behavior
 - If local model loading fails, indexing falls back to `hash` automatically.
 - Check `embedding_fallback_reason` in `index_meta.json` for the exact reason.
+
+## QA Local LLM (Qwen)
+### Recommended Local Path
+- `models/Qwen2___5-0___5B-Instruct`
+
+### Recommended Environment Variables
+- `FINQA_LLM_PROVIDER=modelscope_local`
+- `FINQA_LLM_MODEL=models/Qwen2___5-0___5B-Instruct`
+- `FINQA_LLM_DEVICE=auto`
+- `FINQA_LLM_MAX_NEW_TOKENS=192`
+- `FINQA_LLM_LOCAL_FILES_ONLY=true`
+
+### Verify QA LLM Activation
+```powershell
+$env:PYTHONPATH='src'
+$env:FINQA_LLM_PROVIDER='modelscope_local'
+$env:FINQA_LLM_MODEL='models/Qwen2___5-0___5B-Instruct'
+$env:FINQA_LLM_LOCAL_FILES_ONLY='true'
+python -m finqa ask --q "What are the risk factors in 2024?" --out json
+```
+
+### Notes
+- QA path is offline-first by default (`local_files_only=true`), and does not require HuggingFace network access.
+- If local model loading fails, QA falls back to grounded template answer and still keeps `answer_zh/confidence/citations` contract.
