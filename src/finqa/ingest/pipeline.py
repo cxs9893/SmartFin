@@ -32,24 +32,50 @@ def _extract_records(payload: Any) -> list[dict[str, Any]]:
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
 
+    # Fallback for payloads like {"<sql-query>": [{...}, {...}]}
+    # where the top-level key is dynamic and unknown.
+    list_like_values: list[list[dict[str, Any]]] = []
+    for value in payload.values():
+        if isinstance(value, list):
+            records = [item for item in value if isinstance(item, dict)]
+            if records:
+                list_like_values.append(records)
+    if list_like_values:
+        return max(list_like_values, key=len)
+
     return [payload]
 
 
 def _normalize_record(record: dict[str, Any], source_path: str, idx: int) -> dict[str, Any]:
     source_file = Path(source_path).name
     doc_id = Path(source_path).stem
-    section = _to_str(record.get("section") or record.get("item") or record.get("title"))
+    section = _to_str(
+        record.get("section")
+        or record.get("item")
+        or record.get("title")
+        or record.get("section_title")
+    )
     fiscal_year = _to_str(
         record.get("fiscal_year")
         or record.get("year")
         or record.get("fy")
         or record.get("report_year")
+        or record.get("file_fiscal_year")
     )
-    text = _collapse_ws(str(record.get("text") or record.get("content") or record.get("paragraph") or ""))
+    text = _collapse_ws(
+        str(
+            record.get("text")
+            or record.get("content")
+            or record.get("paragraph")
+            or record.get("section_text")
+            or ""
+        )
+    )
     paragraph_id = _to_str(
         record.get("paragraph_id")
         or record.get("id")
         or record.get("para_id")
+        or record.get("section_id")
         or f"{source_file}-{idx:05d}",
         fallback=f"{source_file}-{idx:05d}",
     )
