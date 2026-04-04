@@ -28,12 +28,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+          pip install pytest
 
       # Enforce iteration-doc process: module code changes must have doc updates.
       - name: Validate iteration docs
         shell: pwsh
         run: |
-          powershell -ExecutionPolicy Bypass -File scripts/validate_iteration_docs.ps1
+          ./scripts/validate_iteration_docs.ps1
 
       # Fast fail gate.
       - name: Run smoke test
@@ -80,6 +81,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+          pip install pytest
 
       # Keep a Windows-specific gate for encoding/path behavior.
       - name: Run smoke + report encoding tests
