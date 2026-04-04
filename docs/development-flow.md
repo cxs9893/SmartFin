@@ -7,6 +7,8 @@
 <!-- ITERATION_DOCS_INDEX_START -->
 - ingest: docs/ingest-iteration.md
 - retrieval: docs/retrieval-iteration.md
+- qa: docs/qa-iteration.md（待创建）
+- report: docs/report-iteration.md（待创建）
 <!-- ITERATION_DOCS_INDEX_END -->
 
 ## 规范与自动化
