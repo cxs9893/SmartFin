@@ -27,6 +27,9 @@
 - `ingest/indexing`：`pytest -q tests/test_ingest_index.py`
 - `retrieval`：`pytest -q tests/test_retrieval_hybrid.py`
 - `qa/report`：执行对应测试文件或最小验证命令
+- 若改动包含 embedding/provider，必须补充：
+- Provider 正常路径验证（本地模型可用）
+- Fallback 路径验证（模型缺失或依赖缺失时流程不中断）
 
 5. CLI 链路验证
 - 至少执行 1 条本模块相关 CLI 命令
@@ -41,6 +44,7 @@
 - 每次报告必须包含：运行命令、退出码、关键输出、受影响文件。
 - 不跨模块补测试：仅补本任务相关测试。
 - 若改动 `src/finqa/<module>/`，必须同步更新 `docs/<module>-iteration.md`。
+- 若改动包含 embedding/provider，报告必须包含 `index_meta.json` 关键字段校验结果。
 
 ## 5. 标准输出结构（Markdown）
 ```md
@@ -62,6 +66,8 @@
 - `test_smoke`：
 - `module_tests`：
 - `cli_validation`：
+- `embedding_provider_path`：
+- `embedding_fallback_path`：
 
 ### 验收映射
 - 功能可用性：`PASS/FAIL/N/A`（证据：...）
@@ -72,6 +78,11 @@
 ### 风险与阻塞
 - 风险：
 - 阻塞：
+- 环境变量快照（脱敏）：
+- `FINQA_EMBEDDING_PROVIDER`
+- `FINQA_EMBEDDING_BGE_MODEL`
+- `FINQA_EMBEDDING_BGE_LOCAL_FILES_ONLY`
+- `FINQA_EMBEDDING_HASH_DIM`
 
 ### 建议下一步
 1. ...
@@ -118,6 +129,12 @@
 3. 在结果中给出命令、退出码、关键输出摘要。
 4. 对验收门槛逐条给出 `PASS/FAIL/N/A`。
 5. 若存在 `FAIL`，必须写入“风险与阻塞”，禁止标注“可直接合并”。
+6. 若改动 embedding/provider，必须在报告中校验 `index_meta.json`：
+- `embedding_provider`
+- `embedding_model`
+- `embedding_dim`
+- `embedding_requested_provider`
+- 若 fallback：`embedding_fallback_from` / `embedding_fallback_reason`
 
 ### 7.2 建议执行（推荐）
 - 触发条件：
@@ -136,6 +153,10 @@
 - 影响范围
 - 替代验证方式（如最小 CLI 验证）
 - 后续补测计划
+- 对于本地模型下载/加载失败，必须额外写清：
+- 是否网络/代理导致
+- 是否已验证 fallback 可用
+- 后续如何恢复 provider 正常路径（例如本地模型目录预置）
 
 ## 8. 全量验收建议（Main Merge Gate）
 1. 基础回归
@@ -151,10 +172,15 @@
 - `python -m finqa ask --q "revenue" --out json`
 - `python -m finqa report --mode cross_year --out json`
 
-4. 容器链路（建议每日至少一次）
+4. Embedding 元信息校验（改动 embedding/provider 时强制）
+- 校验 `index_meta.json` 含 `embedding_provider/model/dim/requested_provider`
+- 若 provider 与 requested_provider 不一致，必须登记 fallback 原因
+- Provider/Fallback 双路径至少覆盖其一，另一条可标注 `N/A` 但需说明
+
+5. 容器链路（建议每日至少一次）
 - `docker-compose up --build`
 
-5. 合并判定
+6. 合并判定
 - 功能可用性：PASS
 - 可追溯字段完整性：PASS
 - 文档完整性：PASS

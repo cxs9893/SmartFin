@@ -18,6 +18,9 @@ dependencies = [
 llm = [
   "llama-cpp-python>=0.2.79"
 ]
+embedding = [
+  "sentence-transformers>=2.7.0"
+]
 
 [project.scripts]
 finqa = "finqa.cli:app"
@@ -34,3 +37,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+cache_dir = ".finqa/.pytest_cache"

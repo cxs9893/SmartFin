@@ -34,6 +34,11 @@
 - 功能 3：citation 结构前置补齐
   - `Citation` 类型新增可选字段：`chunk_id/source_path/doc_id`。
   - 新增 `Chunk` dataclass，明确数据契约，便于后续模块消费。
+- 功能 4：本地 BGE embedding 接入与自动回退
+  - 新增 embedding provider 抽象：`bge`（本地模型）+ `hash`（fallback）。
+  - `build_indices` 使用真实向量构建 FAISS，支持落盘复用。
+  - `index_meta.json` 增加 `embedding_provider/embedding_model/embedding_dim/embedding_requested_provider`。
+  - 当本地模型缺失或加载失败时自动回退到 `hash`，不中断 ingest/index 流程。
 
 ## 验收映射（Acceptance Mapping）
 - 验收项 A（可重复执行，不因已有索引报错） -> 实现/证据：
@@ -48,17 +53,18 @@
 
 ## 验证与结果（Validation and Results）
 - 命令：
-  - `git status --short --branch`
-  - `git rev-parse --short HEAD`
-  - `git diff --name-only HEAD~1..HEAD`
-  - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_smoke.py`
-  - `$env:PYTHONPATH='src'; python -m pytest -q tests/test_ingest_index.py`
-  - `$env:PYTHONPATH='src'; python -m finqa ingest --data-dir data --out-dir .finqa_retest`
+  - `$env:PYTHONPATH='src'; python -m pytest -q -p no:cacheprovider tests/test_ingest_index.py`
+  - `$env:PYTHONPATH='src'; python -m pytest -q -p no:cacheprovider tests/test_embeddings.py`
+  - `$env:PYTHONPATH='src'; python -m finqa ingest --data-dir data --out-dir .finqa`
 - 结果：
-  - `test_smoke.py`：`1 passed`
   - `test_ingest_index.py`：`1 passed`
-  - CLI 验证成功，`.finqa_retest/chunks/chunks.jsonl` 产出 `150` 条 chunk。
-  - `hybrid_search(top_k=3)` 命中 `3` 条，`citation` 字段包含 `source_file/fiscal_year/section/paragraph_id/quote_en`。
+  - `test_embeddings.py`：`1 passed`（覆盖本地 BGE 成功路径）。
+  - CLI 验证成功，`.finqa/chunks/chunks.jsonl` 产出 `150` 条 chunk。
+  - `.finqa/index/index_meta.json` 显示：
+    - `embedding_provider=bge`
+    - `embedding_model=models/bge-base-zh-v1.5`
+    - `embedding_dim=768`
+    - `embedding_requested_provider=bge`
 
 ## 本迭代提交记录（Commits in This Iteration）
 - `a027613` `feat(ingest): stabilize json chunks and persist bm25-faiss indices`
@@ -66,11 +72,18 @@
 - `95f8422` `docs: 新增ingest与索引迭代结果文档`
 - `3a40bc9` `feat(ingest): 支持SQL键结构JSON与SEC字段映射`
 - `6d6cf1a` `test(ingest): 对齐混合检索输出契约并补充SQL键结构用例`
+- `853388c` `feat: 接入本地BGE嵌入并补充模型获取与回退机制`
+- `9fa0571` `feat(indexing): 新增embedding可选依赖与BGE成功路径测试`
 
 ## 已知风险/限制（Known Risks / Limitations）
 - 风险 1：当前 retrieval 主路径仍偏向 `manifest -> chunks` 的简化读取，尚未充分消费 BM25/FAISS 分数融合。
-- 限制 1：向量构建使用本地哈希 embedding（强调稳定与可运行），语义效果仍有提升空间。
+- 风险 2：本地 BGE 模型目录不存在或损坏时会回退到 `hash`，可用性有保障但语义召回质量下降。
+- 限制 1：Windows 下 `pytest` 缓存目录可能出现权限噪声，当前通过 `-p no:cacheprovider` 规避。
 
 ## 建议下一迭代（Suggested Next Iterations）
-- 下一迭代项 1：在 `retrieval` 接入 BM25 + 向量双路召回与归一化融合，并输出可解释打分。
-- 下一迭代项 2：引入可替换 embedding 提供器（本地/云端），并补充检索质量评估基准。
+- 下一迭代项 1（协作 `retrieval` 模块）：接入 BM25 + 向量双路召回与归一化融合，并统一 `hit/citation` 输出契约与打分解释字段。
+- 下一迭代项 2（协作 `qa` 模块）：基于新的检索契约升级 grounded answer 组装逻辑，保证“有证据回答/无证据拒答”与 citation 一致性。
+- 下一迭代项 3（协作 `report` 模块）：对接跨年聚合所需的稳定 chunk 元数据，优化 `single_year/cross_year` 的证据筛选与摘要输入。
+- 下一迭代项 4（协作 `docker`/交付模块）：补齐容器内端到端链路验收（`ingest -> ask/report`），并将命令与结果回填到迭代文档。
+- 下一迭代项 5（能力增强，非协作项）：补充 embedding 质量评估基准（命中率/召回率）并建立固定评测集。
+- 下一迭代项 6（能力增强，非协作项）：完善“模型获取说明入库、模型本体不入库”的自动化校验（pre-commit/CI）。

@@ -7,9 +7,9 @@ ENV PYTHONUNBUFFERED=1
 
 COPY pyproject.toml README.md /app/
 COPY src /app/src
-COPY data /app/data
+RUN mkdir -p /app/data /app/.finqa
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -e .
 
-CMD ["finqa", "--help"]
+CMD ["finqa", "report", "--mode", "cross_year", "--out", "json"]

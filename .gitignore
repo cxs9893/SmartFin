@@ -5,6 +5,10 @@ node_modules/
 dev.sh
 tmux-*.log
 docs/project-progress-main-2026-04-04.md
+models/
+.modelscope/
+.modelscope-cache/
+.finqa*/
 
 # Environments and secrets
 .env
