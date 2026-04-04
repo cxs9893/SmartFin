@@ -37,6 +37,8 @@ def test_generate_report_cross_year_structured():
     assert len(payload["yearly_breakdown"]) == 2
     assert payload["yearly_breakdown"][0]["fiscal_year"] == "2024"
     assert payload["evidence"][0]["source_file"] == "aapl_2024.json"
+    assert payload["pipeline"]["embedding_provider"]
+    assert payload["pipeline"]["llm_provider"]
 
 
 def test_generate_report_single_year_filters_latest():
@@ -58,3 +60,14 @@ def test_generate_report_empty_hits():
     assert payload["summary"]["evidence_count"] == 0
     assert payload["yearly_breakdown"] == []
     assert payload["evidence"] == []
+
+
+def test_generate_report_llm_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("FINQA_ENABLE_LLM", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    payload = generate_report("cross_year", _sample_hits())
+
+    assert payload["pipeline"]["llm_enabled"] is False
+    assert payload["pipeline"]["llm_active"] is False
+    assert payload["llm_error"] is None
