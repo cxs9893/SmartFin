@@ -17,8 +17,9 @@ def test_compose_runs_ingest_and_report_pipeline():
 
     assert "env_file" in content
     assert ".env.example" in content
-    assert "OPENAI_API_KEY" in content
-    assert "FINQA_ENABLE_LLM" in content
+    assert "FINQA_LLM_PROVIDER" in content
+    assert "FINQA_LLM_MODEL" in content
+    assert "./models:/app/models" in content
     assert "finqa ingest --data-dir /app/data --out-dir /app/.finqa" in content
     assert "finqa report --mode cross_year --out json" in content
     assert "report.json" in content

@@ -5,15 +5,15 @@
     env_file:
       - .env.example
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       FINQA_ENABLE_LLM: ${FINQA_ENABLE_LLM:-0}
       FINQA_LLM_PROVIDER: ${FINQA_LLM_PROVIDER:-modelscope_local}
+      FINQA_LLM_MODEL: ${FINQA_LLM_MODEL:-models/Qwen2___5-0___5B-Instruct}
+      FINQA_LLM_LOCAL_FILES_ONLY: ${FINQA_LLM_LOCAL_FILES_ONLY:-true}
       FINQA_EMBEDDING_PROVIDER: ${FINQA_EMBEDDING_PROVIDER:-bge}
     volumes:
       - ./data:/app/data
       - ./.finqa:/app/.finqa
+      - ./models:/app/models
     command:
       [
         "sh",

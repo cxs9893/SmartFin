@@ -26,7 +26,7 @@
 - `pipeline`：embedding / llm 运行配置快照
 - `llm_error`：LLM 调用失败时的错误信息（默认 `null`）
 
-## Embedding + LLM 最小配置
+## Embedding + 本地 LLM 最小配置
 
 ### 新增配置项列表
 
@@ -34,10 +34,9 @@
 
 - `FINQA_EMBEDDING_PROVIDER`：embedding provider，默认 `bge`
 - `FINQA_LLM_PROVIDER`：LLM provider，默认 `modelscope_local`
-- `FINQA_ENABLE_LLM`：是否开启报告 LLM 增强（`0/1`）
-- `OPENAI_API_KEY`：OpenAI 兼容接口 key（仅 `openai-compatible` 时使用）
-- `OPENAI_BASE_URL`：OpenAI 兼容接口地址，默认 `https://api.openai.com/v1`
-- `OPENAI_MODEL`：OpenAI 兼容接口模型名，默认 `gpt-4o-mini`
+- `FINQA_ENABLE_LLM`：是否开启报告本地 LLM 增强（`0/1`）
+- `FINQA_LLM_MODEL`：本地模型路径（示例：`models/Qwen2___5-0___5B-Instruct`）
+- `FINQA_LLM_LOCAL_FILES_ONLY`：是否仅本地加载（推荐 `true`）
 
 ### 最小运行步骤（本地）
 
@@ -55,8 +54,8 @@ finqa report --mode single_year --out json
 ```
 
 说明：
-- 当 `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=openai-compatible` 且 `OPENAI_API_KEY` 已配置时，report 会尝试调用远端 LLM 增强 `report_zh`。
-- 其余情况下，自动回退到本地启发式报告，不影响命令可执行性。
+- 当 `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=modelscope_local` 且本地模型可加载时，report 会尝试调用本地 LLM 增强 `report_zh`。
+- 若本地模型不存在或加载失败，会自动回退到本地启发式报告，不影响命令可执行性。
 
 ## Docker 一键运行
 

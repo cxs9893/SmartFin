@@ -1,10 +1,12 @@
 ﻿from __future__ import annotations
 
-import json
 import os
 from collections import Counter
+from pathlib import Path
 from typing import Any
-from urllib import error, request
+
+
+_REPORT_MODEL_CACHE: dict[str, tuple[Any, Any, str]] = {}
 
 
 def _safe_year_value(year: str) -> int:
@@ -30,14 +32,17 @@ def _pipeline_config() -> dict[str, Any]:
     embedding_provider = os.getenv("FINQA_EMBEDDING_PROVIDER", "bge")
     llm_provider = os.getenv("FINQA_LLM_PROVIDER", "modelscope_local")
     llm_model = os.getenv("FINQA_LLM_MODEL", "models/Qwen2___5-0___5B-Instruct")
+    llm_device = os.getenv("FINQA_LLM_DEVICE", "auto")
+    llm_local_files_only = _is_truthy(os.getenv("FINQA_LLM_LOCAL_FILES_ONLY", "true"))
     llm_enabled = _is_truthy(os.getenv("FINQA_ENABLE_LLM"))
-    openai_key = os.getenv("OPENAI_API_KEY", "")
-    llm_active = llm_enabled and llm_provider == "openai-compatible" and bool(openai_key)
+    llm_active = llm_enabled and llm_provider in {"modelscope_local", "local"}
 
     return {
         "embedding_provider": embedding_provider,
         "llm_provider": llm_provider,
         "llm_model": llm_model,
+        "llm_device": llm_device,
+        "llm_local_files_only": llm_local_files_only,
         "llm_enabled": llm_enabled,
         "llm_active": llm_active,
     }
@@ -94,63 +99,87 @@ def _empty_report(mode: str) -> dict[str, Any]:
     }
 
 
-def _call_openai_compatible_report(mode: str, evidence: list[dict[str, str]]) -> tuple[str | None, str | None]:
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        return None, "OPENAI_API_KEY 未配置"
+def _call_modelscope_local_report(mode: str, evidence: list[dict[str, str]]) -> tuple[str | None, str | None]:
+    model_ref = os.getenv("FINQA_LLM_MODEL", "models/Qwen2___5-0___5B-Instruct").strip()
+    if not model_ref:
+        return None, "FINQA_LLM_MODEL 未配置"
 
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    url = f"{base_url}/chat/completions"
+    local_files_only = _is_truthy(os.getenv("FINQA_LLM_LOCAL_FILES_ONLY", "true"))
+    model_path = Path(model_ref)
+    if local_files_only and not model_path.exists():
+        return None, f"本地模型不存在: {model_ref}"
 
+    try:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+    except Exception as exc:  # noqa: BLE001
+        return None, f"本地模型依赖不可用: {exc}"
+
+    device_pref = os.getenv("FINQA_LLM_DEVICE", "auto").strip().lower()
+    if device_pref == "cpu":
+        device = "cpu"
+    elif device_pref == "cuda":
+        device = "cuda"
+    else:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    cache_key = f"{model_ref}::{device}::{int(local_files_only)}"
+    cached = _REPORT_MODEL_CACHE.get(cache_key)
+    if cached is None:
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_ref, trust_remote_code=True, local_files_only=local_files_only
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                model_ref, trust_remote_code=True, local_files_only=local_files_only
+            )
+        except Exception as exc:  # noqa: BLE001
+            return None, f"本地模型加载失败: {exc}"
+        if device == "cuda":
+            model = model.to("cuda")
+        _REPORT_MODEL_CACHE[cache_key] = (tokenizer, model, device)
+        cached = _REPORT_MODEL_CACHE[cache_key]
+
+    tokenizer, model, device = cached
     evidence_lines = [
         f"- [{item['fiscal_year']}] {item['section']}: {item['snippet']}"
         for item in evidence[:8]
     ]
-    user_prompt = (
-        f"请基于以下财报证据，生成 {mode} 模式的中文简要分析。"
-        "只输出报告正文，不要额外标题。\n" + "\n".join(evidence_lines)
-    )
-
-    body = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是财报分析助手，仅基于给定证据生成简洁中文报告。",
-            },
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.2,
-    }
-
-    req = request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
+    messages = [
+        {
+            "role": "system",
+            "content": "你是财报分析助手，仅基于给定证据生成简洁中文报告。",
         },
-        method="POST",
-    )
+        {
+            "role": "user",
+            "content": f"请基于以下财报证据，生成 {mode} 模式的中文简要分析。只输出报告正文，不要额外标题。\n"
+            + "\n".join(evidence_lines),
+        },
+    ]
 
     try:
-        with request.urlopen(req, timeout=20) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        return None, f"LLM HTTPError {exc.code}: {detail[:200]}"
-    except Exception as exc:  # noqa: BLE001
-        return None, f"LLM 调用失败: {exc}"
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except Exception:
+        prompt = f"{messages[0]['content']}\n\n{messages[1]['content']}\n\n报告："
 
-    choices = payload.get("choices") or []
-    if not choices:
-        return None, "LLM 返回为空"
-    message = choices[0].get("message") or {}
-    content = str(message.get("content") or "").strip()
-    if not content:
-        return None, "LLM 返回内容为空"
-    return content, None
+    try:
+        inputs = tokenizer(prompt, return_tensors="pt")
+        if device == "cuda":
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=int(os.getenv("FINQA_LLM_MAX_NEW_TOKENS", "192")),
+            do_sample=False,
+            temperature=0.0,
+        )
+        generated = outputs[0][inputs["input_ids"].shape[1] :]
+        report = tokenizer.decode(generated, skip_special_tokens=True).strip()
+    except Exception as exc:  # noqa: BLE001
+        return None, f"本地模型推理失败: {exc}"
+
+    if not report:
+        return None, "本地模型返回内容为空"
+    return report, None
 
 
 def generate_report(mode: str, hits: list[dict[str, Any]]) -> dict[str, Any]:
@@ -191,7 +220,7 @@ def generate_report(mode: str, hits: list[dict[str, Any]]) -> dict[str, Any]:
 
     llm_error: str | None = None
     if pipeline["llm_active"]:
-        llm_text, llm_error = _call_openai_compatible_report(normalized_mode, evidence)
+        llm_text, llm_error = _call_modelscope_local_report(normalized_mode, evidence)
         if llm_text:
             report_zh = llm_text
 

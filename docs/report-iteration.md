@@ -22,9 +22,9 @@
   - `docker-compose` 命令链路覆盖 `ingest + report`。
   - 产物写入 `/app/.finqa/report.json`（宿主机 `.finqa/report.json` 可见）。
 - 功能 3：embedding + LLM 最小链路
-  - `docker-compose` 支持通过 `env_file + environment` 读取 API key 与 provider 配置。
-  - `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=openai-compatible` 且 `OPENAI_API_KEY` 存在时，尝试调用远端 LLM 增强 `report_zh`。
-  - 未满足条件时自动回退本地启发式报告，不影响 `single_year/cross_year` 可执行性。
+  - `docker-compose` 支持通过 `env_file + environment` 读取本地模型与 provider 配置。
+  - `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=modelscope_local` 且本地模型可加载时，尝试调用本地 LLM 增强 `report_zh`。
+  - 本地模型不可用时自动回退本地启发式报告，不影响 `single_year/cross_year` 可执行性。
 - 功能 4：文档与测试配套
   - README 补充 embedding/LLM 配置与最小运行步骤、Docker 排障与一键命令清单。
   - 增加并更新报告/容器相关测试以覆盖新链路配置与回退行为。
@@ -35,7 +35,7 @@
   - `python -m finqa report --mode cross_year --out json` 与 `single_year` 命令均可执行并返回结构化 JSON。
 - 验收项 B（`docker-compose up --build` 可启动） -> 实现/证据：
   - `tests/test_container_config.py` 覆盖 ingest/report 链路与产物路径；
-  - `docker-compose.yml` 已配置 `env_file` 与 `OPENAI_API_KEY` 等环境变量注入；
+  - `docker-compose.yml` 已配置 `env_file` 与本地 LLM 环境变量注入（`FINQA_LLM_PROVIDER/FINQA_LLM_MODEL` 等）；
   - `docker-compose config` 解析通过；
   - `docker pull python:3.11-slim` 成功后，`docker-compose up --build -d` 启动成功，容器 `smartfin` 处于 `Up` 状态并产出报告文件。
 - 验收项 C（README 文档完整） -> 实现/证据：
@@ -58,7 +58,7 @@
 
 #### 结果汇总
 - 总结：`PASS`
-- `module_tests`：`PASS`（`6 passed`）
+- `module_tests`：`PASS`（`7 passed`）
 - `cli_validation`：`PASS`
 - `container_runtime`：`PASS`（容器成功构建并保持运行）
 
@@ -79,6 +79,7 @@
 - `9e70beb` `Merge remote-tracking branch 'origin/main' into feat/report-docker-readme`
 - `862bb19` `feat(report): 打通embedding+llm最小可运行链路`
 - `27cacf5` `docs(chore): 补充embedding-llm配置与容器验证说明`
+- `6b839ab` `docs(report): 回填embedding-llm链路验证与验收映射`
 
 ## 已知风险/限制（Known Risks / Limitations）
 - 风险 1：新环境首次执行 `up --build` 仍依赖 Docker Hub 网络质量。

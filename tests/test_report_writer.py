@@ -64,10 +64,22 @@ def test_generate_report_empty_hits():
 
 def test_generate_report_llm_disabled_by_default(monkeypatch):
     monkeypatch.delenv("FINQA_ENABLE_LLM", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     payload = generate_report("cross_year", _sample_hits())
 
     assert payload["pipeline"]["llm_enabled"] is False
     assert payload["pipeline"]["llm_active"] is False
     assert payload["llm_error"] is None
+
+
+def test_generate_report_local_llm_enabled_but_model_missing(monkeypatch):
+    monkeypatch.setenv("FINQA_ENABLE_LLM", "1")
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+    monkeypatch.setenv("FINQA_LLM_LOCAL_FILES_ONLY", "true")
+    monkeypatch.setenv("FINQA_LLM_MODEL", "models/not-exist")
+
+    payload = generate_report("cross_year", _sample_hits())
+
+    assert payload["pipeline"]["llm_active"] is True
+    assert payload["llm_error"] is not None
+    assert "本地模型不存在" in payload["llm_error"]
