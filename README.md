@@ -34,7 +34,7 @@
 
 - `FINQA_EMBEDDING_PROVIDER`：embedding provider，默认 `bge`
 - `FINQA_LLM_PROVIDER`：LLM provider，默认 `modelscope_local`
-- `FINQA_ENABLE_LLM`：是否开启报告本地 LLM 增强（`0/1`）
+- `FINQA_ENABLE_LLM`：报告 LLM 开关（`0/1/auto`）
 - `FINQA_LLM_MODEL`：本地模型路径（示例：`models/Qwen2___5-0___5B-Instruct`）
 - `FINQA_LLM_LOCAL_FILES_ONLY`：是否仅本地加载（推荐 `true`）
 
@@ -54,8 +54,9 @@ finqa report --mode single_year --out json
 ```
 
 说明：
-- 当 `FINQA_ENABLE_LLM=1` 且 `FINQA_LLM_PROVIDER=modelscope_local` 且本地模型可加载时，report 会尝试调用本地 LLM 增强 `report_zh`。
-- 若本地模型不存在或加载失败，会自动回退到本地启发式报告，不影响命令可执行性。
+- 快速模式（默认）：`FINQA_ENABLE_LLM=0`，直接使用本地启发式报告，启动快、资源占用低。
+- 增强模式（本地模型）：`FINQA_ENABLE_LLM=1`，会尝试调用本地 LLM 增强 `report_zh`，若模型缺失或加载失败会回退。
+- 自动模式（推荐稳妥）：`FINQA_ENABLE_LLM=auto`，仅当 `FINQA_LLM_MODEL` 路径存在时才启用本地 LLM；模型不存在时直接走启发式，不做无意义加载尝试。
 
 ## Docker 一键运行
 

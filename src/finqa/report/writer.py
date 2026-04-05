@@ -28,14 +28,33 @@ def _is_truthy(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _llm_enable_mode(value: str | None) -> str:
+    if value is None:
+        return "off"
+    normalized = value.strip().lower()
+    if normalized == "auto":
+        return "auto"
+    if normalized in {"1", "true", "yes", "on"}:
+        return "on"
+    return "off"
+
+
 def _pipeline_config() -> dict[str, Any]:
     embedding_provider = os.getenv("FINQA_EMBEDDING_PROVIDER", "bge")
     llm_provider = os.getenv("FINQA_LLM_PROVIDER", "modelscope_local")
     llm_model = os.getenv("FINQA_LLM_MODEL", "models/Qwen2___5-0___5B-Instruct")
     llm_device = os.getenv("FINQA_LLM_DEVICE", "auto")
     llm_local_files_only = _is_truthy(os.getenv("FINQA_LLM_LOCAL_FILES_ONLY", "true"))
-    llm_enabled = _is_truthy(os.getenv("FINQA_ENABLE_LLM"))
-    llm_active = llm_enabled and llm_provider in {"modelscope_local", "local"}
+    llm_enable_mode = _llm_enable_mode(os.getenv("FINQA_ENABLE_LLM", "0"))
+    llm_provider_ok = llm_provider in {"modelscope_local", "local"}
+    llm_model_exists = Path(llm_model).exists()
+    llm_enabled = llm_enable_mode in {"on", "auto"}
+    if llm_enable_mode == "on":
+        llm_active = llm_provider_ok
+    elif llm_enable_mode == "auto":
+        llm_active = llm_provider_ok and llm_model_exists
+    else:
+        llm_active = False
 
     return {
         "embedding_provider": embedding_provider,
@@ -43,6 +62,8 @@ def _pipeline_config() -> dict[str, Any]:
         "llm_model": llm_model,
         "llm_device": llm_device,
         "llm_local_files_only": llm_local_files_only,
+        "llm_enable_mode": llm_enable_mode,
+        "llm_model_exists": llm_model_exists,
         "llm_enabled": llm_enabled,
         "llm_active": llm_active,
     }

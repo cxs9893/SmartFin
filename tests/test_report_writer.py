@@ -1,4 +1,5 @@
-﻿from finqa.report.writer import generate_report
+﻿import finqa.report.writer as report_writer
+from finqa.report.writer import generate_report
 
 
 def _sample_hits():
@@ -82,4 +83,36 @@ def test_generate_report_local_llm_enabled_but_model_missing(monkeypatch):
 
     assert payload["pipeline"]["llm_active"] is True
     assert payload["llm_error"] is not None
-    assert "本地模型不存在" in payload["llm_error"]
+    assert "models/not-exist" in payload["llm_error"]
+
+
+def test_generate_report_llm_auto_model_missing_no_attempt(monkeypatch):
+    monkeypatch.setenv("FINQA_ENABLE_LLM", "auto")
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+    monkeypatch.setenv("FINQA_LLM_MODEL", "models/not-exist")
+
+    payload = generate_report("cross_year", _sample_hits())
+
+    assert payload["pipeline"]["llm_enable_mode"] == "auto"
+    assert payload["pipeline"]["llm_model_exists"] is False
+    assert payload["pipeline"]["llm_active"] is False
+    assert payload["llm_error"] is None
+
+
+def test_generate_report_llm_auto_model_exists_then_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("FINQA_ENABLE_LLM", "auto")
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+    monkeypatch.setenv("FINQA_LLM_MODEL", str(tmp_path))
+    monkeypatch.setenv("FINQA_LLM_LOCAL_FILES_ONLY", "true")
+    monkeypatch.setattr(
+        report_writer,
+        "_call_modelscope_local_report",
+        lambda mode, evidence: ("auto local report", None),
+    )
+
+    payload = generate_report("cross_year", _sample_hits())
+
+    assert payload["pipeline"]["llm_enable_mode"] == "auto"
+    assert payload["pipeline"]["llm_model_exists"] is True
+    assert payload["pipeline"]["llm_active"] is True
+    assert payload["report_zh"] == "auto local report"
