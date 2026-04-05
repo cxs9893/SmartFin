@@ -116,3 +116,21 @@ def test_generate_report_llm_auto_model_exists_then_run(monkeypatch, tmp_path):
     assert payload["pipeline"]["llm_model_exists"] is True
     assert payload["pipeline"]["llm_active"] is True
     assert payload["report_zh"] == "auto local report"
+
+
+def test_generate_report_llm_enabled_model_exists_then_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("FINQA_ENABLE_LLM", "1")
+    monkeypatch.setenv("FINQA_LLM_PROVIDER", "modelscope_local")
+    monkeypatch.setenv("FINQA_LLM_MODEL", str(tmp_path))
+    monkeypatch.setattr(
+        report_writer,
+        "_call_modelscope_local_report",
+        lambda mode, evidence: ("enabled local report", None),
+    )
+
+    payload = generate_report("cross_year", _sample_hits())
+
+    assert payload["pipeline"]["llm_enabled"] is True
+    assert payload["pipeline"]["llm_active"] is True
+    assert payload["llm_error"] is None
+    assert payload["report_zh"] == "enabled local report"

@@ -44,6 +44,7 @@
 python -m venv .venv
 . .venv/Scripts/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -e .
+pip install -e ".[embedding,local-llm]"
 ```
 
 ```bash
@@ -56,6 +57,7 @@ finqa report --mode single_year --out json
 说明：
 - 快速模式（默认）：`FINQA_ENABLE_LLM=0`，直接使用本地启发式报告，启动快、资源占用低。
 - 增强模式（本地模型）：`FINQA_ENABLE_LLM=1`，会尝试调用本地 LLM 增强 `report_zh`，若模型缺失或加载失败会回退。
+  - 运行前置条件：已安装 `local-llm` 依赖（`torch`、`transformers`），且 `FINQA_LLM_MODEL` 指向可访问的本地模型目录。
 - 自动模式（推荐稳妥）：`FINQA_ENABLE_LLM=auto`，仅当 `FINQA_LLM_MODEL` 路径存在时才启用本地 LLM；模型不存在时直接走启发式，不做无意义加载尝试。
 
 ## Docker 一键运行

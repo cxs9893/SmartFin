@@ -32,6 +32,9 @@
 - 功能 4：文档与测试配套
   - README 补充 embedding/LLM 配置与最小运行步骤、Docker 排障与一键命令清单。
   - 增加并更新报告/容器相关测试以覆盖新链路配置与回退行为。
+- 功能 5：容器本地 LLM 依赖补齐
+  - `pyproject.toml` 新增可选依赖组 `local-llm`（`torch`、`transformers`）。
+  - Dockerfile 安装升级为包含 `.[embedding,local-llm]`，修复容器内 `No module named 'torch'`。
 
 ## 验收映射（Acceptance Mapping）
 - 验收项 A（`finqa report` 可执行并产出结构化结果） -> 实现/证据：
@@ -50,7 +53,7 @@
 
 #### 基础信息
 - 分支：`feat/report-docker-readme`
-- 提交：`02d11a8`
+- 提交：`待更新（本次修复提交）`
 - 模块：`report`
 
 #### 执行命令
@@ -60,17 +63,22 @@
 4. `PYTHONPATH=d:\mymaa\sf-D\src FINQA_ENABLE_LLM=auto FINQA_LLM_PROVIDER=modelscope_local python -m finqa report --mode single_year --out json`（exit 0）
 5. `docker-compose config`（exit 0）
 6. `docker-compose up --build -d`（exit 1，环境权限）
+7. `docker compose build --no-cache`（exit 0）
+8. `docker compose up -d`（exit 0，清理冲突容器后）
+9. `docker exec smartfin sh -lc "FINQA_ENABLE_LLM=1 FINQA_LLM_PROVIDER=modelscope_local finqa report --mode cross_year --out json"`（exit 0）
 
 #### 结果汇总
 - 总结：`PARTIAL PASS`
 - `module_tests`：`PASS`（`11 passed`）
 - `cli_validation`：`PASS`
 - `container_runtime`：`BLOCKED`（当前主机出现 `dockerDesktopLinuxEngine Access is denied`）
+- `container_runtime`：`PASS`（重建镜像并清理冲突容器后，容器链路与本地 LLM 调用通过）
 
 #### 验收映射
 - 功能可用性：`PASS`（report 命令与报告测试通过）
 - 可追溯字段完整性：`PASS`（`evidence` 保持 `source_file/fiscal_year/section/paragraph_id`）
 - 容器可运行性：`PARTIAL PASS`（`docker-compose config` 通过；`up --build -d` 在当前主机被 Docker 权限阻塞，非代码错误）
+- 容器可运行性：`PASS`（`docker compose build --no-cache` + `up -d` 成功；容器内 `FINQA_ENABLE_LLM=1` 运行时 `llm_enabled=true`、`llm_active=true`、`llm_error=null`）
 - 文档完整性：`PASS`（README 已补 embedding/LLM 配置与最小运行步骤）
 
 #### 风险与阻塞
@@ -86,6 +94,8 @@
 - `27cacf5` `docs(chore): 补充embedding-llm配置与容器验证说明`
 - `6b839ab` `docs(report): 回填embedding-llm链路验证与验收映射`
 - `02d11a8` `feat(report): 新增 llm auto mode with local model existence gate`
+- `（待补）` `feat(docker): 安装 local-llm 依赖并修复容器 torch 缺失`
+- `（待补）` `docs(test): 更新 report 迭代验证与本地 LLM 前置说明`
 
 ## 已知风险/限制（Known Risks / Limitations）
 - 风险 1：新环境首次执行 `up --build` 仍依赖 Docker Hub 网络质量。
