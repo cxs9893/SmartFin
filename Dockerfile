@@ -10,7 +10,6 @@ COPY src /app/src
 RUN mkdir -p /app/data /app/.finqa
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -e . \
     && pip install --no-cache-dir -e ".[embedding,local-llm]"
 
 CMD ["finqa", "report", "--mode", "cross_year", "--out", "json"]

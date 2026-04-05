@@ -9,7 +9,7 @@ def test_dockerfile_has_runtime_dirs_and_entry_command():
 
     assert "WORKDIR /app" in content
     assert "RUN mkdir -p /app/data /app/.finqa" in content
-    assert "pip install --no-cache-dir -e ." in content
+    assert "pip install --no-cache-dir -e \".[embedding,local-llm]\"" in content
 
 
 def test_compose_runs_ingest_and_report_pipeline():
